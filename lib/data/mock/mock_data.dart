@@ -3,13 +3,13 @@ import '../models/quote_model.dart';
 class MockData {
   static final List<UserModel> mockUsers = [
     UserModel(
-      email: 'ivan@example.com',
-      name: 'Іван Буряк',
+      email: 'bohdan@example.com',
+      name: 'Богдан Крук',
       password: 'password123',
     ),
     UserModel(
-      email: 'other@example.com',
-      name: 'Олена',
+      email: 'ivanna@example.com',
+      name: 'Іванна',
       password: 'qwerty',
     ),
   ];
@@ -20,7 +20,7 @@ class MockData {
       text: "Не чекай; час ніколи не буде 'правильним'. Почни там, де стоїш.",
       author: "Наполеон Хілл",
       tags: ["motivation", "time"],
-      userId: "ivan@example.com",
+      userId: "bohdan@example.com",
       createdAt: "2025-09-01",
     ),
     QuoteModel(
@@ -28,7 +28,7 @@ class MockData {
       text: "Мистецтво — це те, що робить життя цікавішим за мистецтво.",
       author: "Еллісу",
       tags: ["art", "life"],
-      userId: "other@example.com",
+      userId: "ivanna@example.com",
       createdAt: "2025-08-21",
     ),
     QuoteModel(
@@ -36,7 +36,7 @@ class MockData {
       text: "Кожна велика подорож починається з першого кроку.",
       author: "Лао Цзи",
       tags: ["philosophy", "life"],
-      userId: "ivan@example.com",
+      userId: "bohdan@example.com",
       createdAt: "2025-07-11",
     ),
     QuoteModel(
@@ -44,7 +44,7 @@ class MockData {
       text: "Пиши так, ніби ніхто ніколи не буде читати. Потім відредагуй для світу.",
       author: "Анна",
       tags: ["writing", "advice"],
-      userId: "other@example.com",
+      userId: "ivanna@example.com",
       createdAt: "2025-06-03",
     ),
   ];

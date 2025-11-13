@@ -63,109 +63,30 @@ class _AuthScreenState extends State<AuthScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Color(0xFFF8FAFC), AppTheme.background],
-          ),
-        ),
-        child: SafeArea(
-          child: Center(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(28),
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 480),
-                child: Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(18),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Container(
-                              width: 48,
-                              height: 48,
-                              decoration: BoxDecoration(
-                                gradient: const LinearGradient(
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                  colors: [AppTheme.primary, Color(0xFF7B85FF)],
-                                ),
-                                borderRadius: BorderRadius.circular(10),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withOpacity(0.06),
-                                    blurRadius: 18,
-                                    offset: const Offset(0, 6),
-                                  ),
-                                ],
-                              ),
-                              child: const Center(
-                                child: Text(
-                                  'QG',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.w700,
-                                    fontSize: 18,
-                                  ),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            const Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'QuoteGallery — демо',
-                                  style: TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                                Text(
-                                  'Збережи улюблені цитати.',
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    color: AppTheme.textMuted,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 24),
+    return Scaffold(body: _buildBody(context));
+  }
 
-                        Row(
-                          children: [
-                            Expanded(
-                              child: _TabButton(
-                                text: 'Вхід',
-                                isActive: isLoginTab,
-                                onTap: () => setState(() => isLoginTab = true),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: _TabButton(
-                                text: 'Реєстрація',
-                                isActive: !isLoginTab,
-                                onTap: () => setState(() => isLoginTab = false),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 18),
-
-                        if (isLoginTab)
-                          _buildLoginForm()
-                        else
-                          _buildRegisterForm(),
-                      ],
-                    ),
+  Widget _buildBody(BuildContext context) {
+    return Container(
+      decoration: _buildBackgroundDecoration(),
+      child: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(28),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 480),
+              child: Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(18),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildHeader(),
+                      const SizedBox(height: 24),
+                      _buildTabs(),
+                      const SizedBox(height: 18),
+                      _buildForm(),
+                    ],
                   ),
                 ),
               ),
@@ -174,6 +95,96 @@ class _AuthScreenState extends State<AuthScreen> {
         ),
       ),
     );
+  }
+
+  BoxDecoration _buildBackgroundDecoration() {
+    return const BoxDecoration(
+      gradient: LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [Color(0xFFF8FAFC), AppTheme.background],
+      ),
+    );
+  }
+
+  Widget _buildHeader() {
+    return Row(
+      children: [_buildLogo(), const SizedBox(width: 12), _buildTitle()],
+    );
+  }
+
+  Widget _buildLogo() {
+    return Container(
+      width: 48,
+      height: 48,
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [AppTheme.primary, Color(0xFF7B85FF)],
+        ),
+        borderRadius: BorderRadius.circular(10),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.06),
+            blurRadius: 18,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: const Center(
+        child: Text(
+          'QG',
+          style: TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.w700,
+            fontSize: 18,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTitle() {
+    return const Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'QuoteGallery',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+        ),
+        Text(
+          'Збережи улюблені цитати.',
+          style: TextStyle(fontSize: 13, color: AppTheme.textMuted),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTabs() {
+    return Row(
+      children: [
+        Expanded(
+          child: _TabButton(
+            text: 'Вхід',
+            isActive: isLoginTab,
+            onTap: () => setState(() => isLoginTab = true),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: _TabButton(
+            text: 'Реєстрація',
+            isActive: !isLoginTab,
+            onTap: () => setState(() => isLoginTab = false),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildForm() {
+    return isLoginTab ? _buildLoginForm() : _buildRegisterForm();
   }
 
   Widget _buildLoginForm() {
