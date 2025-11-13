@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "407287431542",
+    "project_id": "quote-gallery-fddfd",
+    "storage_bucket": "quote-gallery-fddfd.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:407287431542:android:cb94373c60ee4d66027a57",
+        "android_client_info": {
+          "package_name": "com.example.quote_gallery"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCxKggIbNoyWErMiEkOMbOdekMjdoLDdPI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

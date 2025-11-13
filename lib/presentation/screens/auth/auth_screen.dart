@@ -1,8 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/custom_button.dart';
 import '../../../core/widgets/custom_text_field.dart';
-import '../../../data/mock/mock_data.dart';
+import '../../../core/constants/app_strings.dart';
+import '../../../data/repositories/auth_repository.dart';
+import '../../../core/services/analytics_service.dart';
 
 class AuthScreen extends StatefulWidget {
   const AuthScreen({super.key});
@@ -13,12 +18,20 @@ class AuthScreen extends StatefulWidget {
 
 class _AuthScreenState extends State<AuthScreen> {
   bool isLoginTab = true;
+  bool isLoading = false;
+  bool _hasAttemptedValidation = false;
+
+  final _formKey = GlobalKey<FormState>();
+  final AuthRepository _authRepository = AuthRepository();
+  final _analytics = AnalyticsService();
 
   final TextEditingController loginEmailController = TextEditingController();
   final TextEditingController loginPasswordController = TextEditingController();
   final TextEditingController registerNameController = TextEditingController();
   final TextEditingController registerEmailController = TextEditingController();
   final TextEditingController registerPasswordController =
+      TextEditingController();
+  final TextEditingController registerConfirmPasswordController =
       TextEditingController();
 
   @override
@@ -28,37 +41,188 @@ class _AuthScreenState extends State<AuthScreen> {
     registerNameController.dispose();
     registerEmailController.dispose();
     registerPasswordController.dispose();
+    registerConfirmPasswordController.dispose();
     super.dispose();
   }
 
-  void _handleLogin() {
-    final email = loginEmailController.text.trim();
-    final password = loginPasswordController.text;
-
-    final user = MockData.mockUsers.firstWhere(
-      (u) =>
-          u.email.toLowerCase() == email.toLowerCase() &&
-          u.password == password,
-      orElse: () => MockData.mockUsers.first,
-    );
-
-    MockData.currentUser = user;
-
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('Успішний вхід')));
-
-    Navigator.pushReplacementNamed(context, '/main');
+  /// Очищення помилок форми при зміні вкладки
+  void _clearFormErrors() {
+    _formKey.currentState?.reset();
+    _hasAttemptedValidation = false;
+    setState(() {});
   }
 
-  void _handleRegister() {
-    MockData.currentUser = MockData.mockUsers.first;
+  /// Очищення помилок при зміні тексту в полі
+  void _onFieldChanged() {
+    if (_hasAttemptedValidation) {
+      setState(() {});
+    }
+  }
 
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('Реєстрація успішна')));
+  /// Валідація email
+  String? _validateEmail(String? value) {
+    if (!_hasAttemptedValidation) {
+      return null;
+    }
 
-    Navigator.pushReplacementNamed(context, '/main');
+    if (value == null || value.trim().isEmpty) {
+      return AppStrings.emailRequired;
+    }
+    final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
+    if (!emailRegex.hasMatch(value.trim())) {
+      return AppStrings.emailInvalid;
+    }
+    return null;
+  }
+
+  String? _validatePassword(String? value) {
+    if (!_hasAttemptedValidation) return null;
+
+    if (value == null || value.isEmpty) {
+      return AppStrings.passwordRequired;
+    }
+    if (value.length < 6) {
+      return AppStrings.passwordMinLength;
+    }
+    return null;
+  }
+
+  String? _validateConfirmPassword(String? value) {
+    if (!_hasAttemptedValidation) return null;
+
+    if (value == null || value.isEmpty) {
+      return AppStrings.confirmPasswordRequired;
+    }
+    if (value != registerPasswordController.text) {
+      return AppStrings.passwordsDoNotMatch;
+    }
+    return null;
+  }
+
+  String? _validateName(String? value) {
+    if (!_hasAttemptedValidation) return null;
+
+    if (value == null || value.trim().isEmpty) {
+      return AppStrings.nameRequired;
+    }
+    if (value.trim().length < 2) {
+      return AppStrings.nameMinLength;
+    }
+    return null;
+  }
+
+  Future<void> _handleLogin() async {
+    setState(() {
+      _hasAttemptedValidation = true;
+    });
+
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
+
+    setState(() => isLoading = true);
+
+    try {
+      await _authRepository.signIn(
+        email: loginEmailController.text,
+        password: loginPasswordController.text,
+      );
+
+      await _analytics.logLogin(method: 'email');
+
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text(AppStrings.loginSuccess)));
+        Navigator.pushReplacementNamed(context, '/main');
+      }
+    } on FirebaseAuthException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.message ?? AppStrings.errorUnknown),
+            backgroundColor: AppTheme.danger,
+          ),
+        );
+      }
+    } catch (e) {
+      if (!kIsWeb) {
+        FirebaseCrashlytics.instance.log('Login error: $e');
+        FirebaseCrashlytics.instance.recordError(e, null, fatal: false);
+      }
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(AppStrings.errorUnknown),
+            backgroundColor: AppTheme.danger,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => isLoading = false);
+      }
+    }
+  }
+
+  Future<void> _handleRegister() async {
+    setState(() {
+      _hasAttemptedValidation = true;
+    });
+
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
+
+    setState(() => isLoading = true);
+
+    try {
+      await _authRepository.signUp(
+        email: registerEmailController.text,
+        password: registerPasswordController.text,
+      );
+
+      await _authRepository.updateProfile(
+        displayName: registerNameController.text.trim(),
+      );
+
+      await _analytics.logSignUp(method: 'email');
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text(AppStrings.registerSuccess)),
+        );
+        Navigator.pushReplacementNamed(context, '/main');
+      }
+    } on FirebaseAuthException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.message ?? AppStrings.errorUnknown),
+            backgroundColor: AppTheme.danger,
+          ),
+        );
+      }
+    } catch (e) {
+      if (!kIsWeb) {
+        FirebaseCrashlytics.instance.log('Register error: $e');
+        FirebaseCrashlytics.instance.recordError(e, null, fatal: false);
+      }
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(AppStrings.errorUnknown),
+            backgroundColor: AppTheme.danger,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => isLoading = false);
+      }
+    }
   }
 
   @override
@@ -78,15 +242,23 @@ class _AuthScreenState extends State<AuthScreen> {
               child: Card(
                 child: Padding(
                   padding: const EdgeInsets.all(18),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildHeader(),
-                      const SizedBox(height: 24),
-                      _buildTabs(),
-                      const SizedBox(height: 18),
-                      _buildForm(),
-                    ],
+                  child: Form(
+                    key: _formKey,
+                    autovalidateMode: AutovalidateMode.disabled,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildHeader(),
+                        const SizedBox(height: 24),
+                        _buildTabs(),
+                        const SizedBox(height: 18),
+                        _buildForm(),
+                        if (isLoading) ...[
+                          const SizedBox(height: 16),
+                          const Center(child: CircularProgressIndicator()),
+                        ],
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -150,11 +322,11 @@ class _AuthScreenState extends State<AuthScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'QuoteGallery',
+          AppStrings.appTitle,
           style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
         ),
         Text(
-          'Збережи улюблені цитати.',
+          AppStrings.appSubtitle,
           style: TextStyle(fontSize: 13, color: AppTheme.textMuted),
         ),
       ],
@@ -166,17 +338,27 @@ class _AuthScreenState extends State<AuthScreen> {
       children: [
         Expanded(
           child: _TabButton(
-            text: 'Вхід',
+            text: AppStrings.login,
             isActive: isLoginTab,
-            onTap: () => setState(() => isLoginTab = true),
+            onTap: () {
+              setState(() {
+                isLoginTab = true;
+                _clearFormErrors();
+              });
+            },
           ),
         ),
         const SizedBox(width: 8),
         Expanded(
           child: _TabButton(
-            text: 'Реєстрація',
+            text: AppStrings.register,
             isActive: !isLoginTab,
-            onTap: () => setState(() => isLoginTab = false),
+            onTap: () {
+              setState(() {
+                isLoginTab = false;
+                _clearFormErrors();
+              });
+            },
           ),
         ),
       ],
@@ -191,22 +373,30 @@ class _AuthScreenState extends State<AuthScreen> {
     return Column(
       children: [
         CustomTextField(
-          label: 'Електронна пошта',
-          placeholder: 'email@example.com',
+          label: AppStrings.email,
+          placeholder: AppStrings.emailPlaceholder,
           controller: loginEmailController,
           keyboardType: TextInputType.emailAddress,
+          validator: _validateEmail,
+          onChanged: (_) => _onFieldChanged(),
         ),
         const SizedBox(height: 12),
         CustomTextField(
-          label: 'Пароль',
-          placeholder: 'пароль',
+          label: AppStrings.password,
+          placeholder: AppStrings.passwordPlaceholder,
           controller: loginPasswordController,
           obscureText: true,
+          showPasswordToggle: true,
+          validator: _validatePassword,
+          onChanged: (_) => _onFieldChanged(),
         ),
         const SizedBox(height: 16),
         SizedBox(
           width: double.infinity,
-          child: CustomButton(text: 'Увійти', onPressed: _handleLogin),
+          child: CustomButton(
+            text: AppStrings.loginButton,
+            onPressed: isLoading ? () {} : () => _handleLogin(),
+          ),
         ),
       ],
     );
@@ -216,30 +406,53 @@ class _AuthScreenState extends State<AuthScreen> {
     return Column(
       children: [
         CustomTextField(
-          label: 'Ім\'я',
-          placeholder: 'Ваше ім\'я',
+          label: AppStrings.name,
+          placeholder: AppStrings.namePlaceholder,
           controller: registerNameController,
+          validator: _validateName,
+          onChanged: (_) => _onFieldChanged(),
         ),
         const SizedBox(height: 12),
         CustomTextField(
-          label: 'Електронна пошта',
-          placeholder: 'email@example.com',
+          label: AppStrings.email,
+          placeholder: AppStrings.emailPlaceholder,
           controller: registerEmailController,
           keyboardType: TextInputType.emailAddress,
+          validator: _validateEmail,
+          onChanged: (_) => _onFieldChanged(),
         ),
         const SizedBox(height: 12),
         CustomTextField(
-          label: 'Пароль',
-          placeholder: 'пароль',
+          label: AppStrings.password,
+          placeholder: AppStrings.passwordPlaceholder,
           controller: registerPasswordController,
           obscureText: true,
+          showPasswordToggle: true,
+          validator: _validatePassword,
+          onChanged: (_) {
+            _onFieldChanged();
+            // Перевіряємо також поле повтору пароля
+            if (registerConfirmPasswordController.text.isNotEmpty) {
+              setState(() {});
+            }
+          },
+        ),
+        const SizedBox(height: 12),
+        CustomTextField(
+          label: AppStrings.confirmPassword,
+          placeholder: AppStrings.passwordPlaceholder,
+          controller: registerConfirmPasswordController,
+          obscureText: true,
+          showPasswordToggle: true,
+          validator: _validateConfirmPassword,
+          onChanged: (_) => _onFieldChanged(),
         ),
         const SizedBox(height: 16),
         SizedBox(
           width: double.infinity,
           child: CustomButton(
-            text: 'Зареєструватися',
-            onPressed: _handleRegister,
+            text: AppStrings.registerButton,
+            onPressed: isLoading ? () {} : () => _handleRegister(),
             isPrimary: false,
           ),
         ),

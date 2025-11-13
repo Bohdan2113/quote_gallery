@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/quote_card.dart';
+import '../../../core/constants/app_strings.dart';
 import '../../../data/mock/mock_data.dart';
 import '../../../data/models/quote_model.dart';
+import '../../../data/repositories/auth_repository.dart';
+import '../../../core/services/analytics_service.dart';
 import '../profile/profile_screen.dart';
 import '../create/create_screen.dart';
 
@@ -18,14 +21,15 @@ class _MainScreenState extends State<MainScreen> {
   String searchQuery = '';
   String selectedAuthor = '';
   String selectedTag = '';
+  final AuthRepository _authRepository = AuthRepository();
+  final _analytics = AnalyticsService();
 
   List<QuoteModel> get filteredQuotes {
     List<QuoteModel> quotes = List.from(MockData.mockQuotes);
 
     if (selectedTab == 1) {
-      quotes = quotes
-          .where((q) => q.userId == MockData.currentUser?.email)
-          .toList();
+      final currentUserEmail = _authRepository.currentUser?.email;
+      quotes = quotes.where((q) => q.userId == currentUserEmail).toList();
     } else if (selectedTab == 2) {
       quotes = quotes.where((q) => q.isFavorite).toList();
     }
@@ -161,7 +165,7 @@ class _MainScreenState extends State<MainScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'QuoteGallery',
+            AppStrings.appTitle,
             style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
           ),
         ],
@@ -171,11 +175,14 @@ class _MainScreenState extends State<MainScreen> {
 
   Widget _buildUserButton(BuildContext context) {
     return InkWell(
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => const ProfileScreen()),
-        );
+      onTap: () async {
+        await _analytics.logOpenProfile();
+        if (context.mounted) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => ProfileScreen()),
+          );
+        }
       },
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
@@ -186,7 +193,7 @@ class _MainScreenState extends State<MainScreen> {
         child: Row(
           children: [
             Text(
-              MockData.currentUser?.name ?? 'Користувач',
+              _authRepository.currentUser?.displayName ?? AppStrings.user,
               style: const TextStyle(
                 color: AppTheme.primary,
                 fontWeight: FontWeight.w600,
@@ -204,21 +211,30 @@ class _MainScreenState extends State<MainScreen> {
     return Row(
       children: [
         _TabButton(
-          text: 'Усі цитати',
+          text: AppStrings.allQuotes,
           isActive: selectedTab == 0,
-          onTap: () => setState(() => selectedTab = 0),
+          onTap: () async {
+            await _analytics.logViewAllQuotes();
+            setState(() => selectedTab = 0);
+          },
         ),
         const SizedBox(width: 8),
         _TabButton(
-          text: 'Мої цитати',
+          text: AppStrings.myQuotes,
           isActive: selectedTab == 1,
-          onTap: () => setState(() => selectedTab = 1),
+          onTap: () async {
+            await _analytics.logViewMyQuotes();
+            setState(() => selectedTab = 1);
+          },
         ),
         const SizedBox(width: 8),
         _TabButton(
-          text: 'Улюблені',
+          text: AppStrings.favorites,
           isActive: selectedTab == 2,
-          onTap: () => setState(() => selectedTab = 2),
+          onTap: () async {
+            await _analytics.logViewFavorites();
+            setState(() => selectedTab = 2);
+          },
         ),
       ],
     );
@@ -226,10 +242,15 @@ class _MainScreenState extends State<MainScreen> {
 
   Widget _buildSearchField() {
     return TextField(
-      onChanged: (value) => setState(() => searchQuery = value),
-      decoration: const InputDecoration(
-        hintText: 'Пошук цитат...',
-        prefixIcon: Icon(Icons.search),
+      onChanged: (value) async {
+        setState(() => searchQuery = value);
+        if (value.isNotEmpty) {
+          await _analytics.logSearch(query: value);
+        }
+      },
+      decoration: InputDecoration(
+        hintText: AppStrings.searchPlaceholder,
+        prefixIcon: const Icon(Icons.search),
       ),
     );
   }
@@ -249,11 +270,11 @@ class _MainScreenState extends State<MainScreen> {
       menuMaxHeight: 130,
       initialValue: selectedAuthor.isEmpty ? null : selectedAuthor,
       decoration: const InputDecoration(
-        hintText: 'Всі автори',
+        hintText: AppStrings.allAuthors,
         contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       ),
       items: [
-        const DropdownMenuItem(value: '', child: Text('Всі автори')),
+        const DropdownMenuItem(value: '', child: Text(AppStrings.allAuthors)),
         ...allAuthors.map((author) {
           return DropdownMenuItem(value: author, child: Text(author));
         }),
@@ -269,11 +290,11 @@ class _MainScreenState extends State<MainScreen> {
       menuMaxHeight: 130,
       initialValue: selectedTag.isEmpty ? null : selectedTag,
       decoration: const InputDecoration(
-        hintText: 'Всі теги',
+        hintText: AppStrings.allTags,
         contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       ),
       items: [
-        const DropdownMenuItem(value: '', child: Text('Всі теги')),
+        const DropdownMenuItem(value: '', child: Text(AppStrings.allTags)),
         ...allTags.map((tag) {
           return DropdownMenuItem(value: tag, child: Text(tag));
         }),
@@ -289,11 +310,11 @@ class _MainScreenState extends State<MainScreen> {
       mainAxisAlignment: MainAxisAlignment.end,
       children: [
         Text(
-          'Користувач: ',
+          '${AppStrings.user}: ',
           style: TextStyle(fontSize: 13, color: AppTheme.textMuted),
         ),
         Text(
-          MockData.currentUser?.name ?? '—',
+          _authRepository.currentUser?.displayName ?? '—',
           style: const TextStyle(
             fontSize: 13,
             fontWeight: FontWeight.bold,
@@ -317,7 +338,7 @@ class _MainScreenState extends State<MainScreen> {
   Widget _buildEmptyState() {
     return const Center(
       child: Text(
-        'Нічого не знайдено.',
+        AppStrings.nothingFound,
         style: TextStyle(color: AppTheme.textMuted, fontSize: 16),
       ),
     );
@@ -340,7 +361,7 @@ class _MainScreenState extends State<MainScreen> {
   }
 
   Widget _buildQuoteCard(BuildContext context, QuoteModel quote) {
-    final isOwner = quote.userId == MockData.currentUser?.email;
+    final isOwner = quote.userId == _authRepository.currentUser?.email;
 
     return QuoteCard(
       quote: quote,
@@ -351,60 +372,81 @@ class _MainScreenState extends State<MainScreen> {
     );
   }
 
-  void _handleFavoriteToggle(BuildContext context, QuoteModel quote) {
+  Future<void> _handleFavoriteToggle(
+    BuildContext context,
+    QuoteModel quote,
+  ) async {
     setState(() {
       quote.isFavorite = !quote.isFavorite;
     });
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          quote.isFavorite ? 'Додано до улюблених' : 'Вилучено з улюблених',
+
+    if (quote.isFavorite) {
+      await _analytics.logAddToFavorites(quoteId: quote.id);
+    } else {
+      await _analytics.logRemoveFromFavorites(quoteId: quote.id);
+    }
+
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            quote.isFavorite
+                ? AppStrings.addedToFavorites
+                : AppStrings.removedFromFavorites,
+          ),
+          duration: const Duration(seconds: 1),
         ),
-        duration: const Duration(seconds: 1),
-      ),
-    );
+      );
+    }
   }
 
   void _handleEdit(BuildContext context) {
     ScaffoldMessenger.of(
       context,
-    ).showSnackBar(const SnackBar(content: Text('Редагування (заглушка)')));
+    ).showSnackBar(const SnackBar(content: Text(AppStrings.editPlaceholder)));
   }
 
-  void _handleDelete(BuildContext context) {
-    showDialog(
+  Future<void> _handleDelete(BuildContext context) async {
+    final result = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Видалити цитату?'),
+        title: const Text(AppStrings.deleteQuote),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Скасувати'),
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text(AppStrings.cancel),
           ),
           TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Видалення (заглушка)')),
-              );
-            },
+            onPressed: () => Navigator.pop(context, true),
             child: const Text(
-              'Видалити',
+              AppStrings.delete,
               style: TextStyle(color: AppTheme.danger),
             ),
           ),
         ],
       ),
     );
+
+    if (result == true) {
+      await _analytics.logDeleteQuote();
+      if (context.mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text(AppStrings.quoteDeleted)));
+      }
+    }
   }
 
   Widget _buildFloatingActionButton(BuildContext context) {
     return FloatingActionButton(
-      onPressed: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => const CreateScreen()),
-        );
+      onPressed: () async {
+        await _analytics.logOpenCreateQuote();
+        if (context.mounted) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const CreateScreen()),
+          );
+        }
       },
       backgroundColor: AppTheme.primary,
       child: const Icon(Icons.add, size: 30),
