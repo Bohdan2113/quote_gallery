@@ -7,6 +7,9 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:provider/provider.dart';
 
 import 'firebase_options.dart';
+import 'data/repositories/auth_repository.dart';
+import 'data/repositories/quotes_repository.dart';
+import 'data/repositories/favorites_repository.dart';
 import 'presentation/screens/auth/auth_screen.dart';
 import 'presentation/screens/main/main_screen.dart';
 import 'presentation/state/quotes_provider.dart';
@@ -39,7 +42,16 @@ void main() async {
   runApp(
     MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (_) => QuotesProvider()..loadQuotes()),
+        Provider<AuthRepository>(create: (_) => AuthRepository()),
+        Provider<IQuotesRepository>(create: (_) => QuotesRepository()),
+        Provider<IFavoritesRepository>(create: (_) => FavoritesRepository()),
+        ChangeNotifierProvider(
+          create: (context) => QuotesProvider(
+            repository: context.read<IQuotesRepository>(),
+            favoritesRepository: context.read<IFavoritesRepository>(),
+            authRepository: context.read<AuthRepository>(),
+          )..loadQuotes(),
+        ),
       ],
       child: const QuoteGalleryApp(),
     ),

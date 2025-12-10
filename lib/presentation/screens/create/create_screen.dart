@@ -1,12 +1,21 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/custom_button.dart';
 import '../../../core/widgets/custom_text_field.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../core/services/analytics_service.dart';
+import '../../../data/models/quote_model.dart';
+import '../../state/quotes_provider.dart';
 
 class CreateScreen extends StatefulWidget {
-  const CreateScreen({super.key});
+  const CreateScreen({super.key, this.initialQuote});
+
+  /// Якщо не null – екран працює в режимі редагування
+  final QuoteModel? initialQuote;
+
+  bool get isEdit => initialQuote != null;
 
   @override
   State<CreateScreen> createState() => _CreateScreenState();
@@ -19,6 +28,17 @@ class _CreateScreenState extends State<CreateScreen> {
   final TextEditingController authorController = TextEditingController();
   final TextEditingController tagsController = TextEditingController();
   final _analytics = AnalyticsService();
+
+  @override
+  void initState() {
+    super.initState();
+    final quote = widget.initialQuote;
+    if (quote != null) {
+      textController.text = quote.text;
+      authorController.text = quote.author;
+      tagsController.text = quote.tags.join(', ');
+    }
+  }
 
   @override
   void dispose() {
@@ -83,19 +103,48 @@ class _CreateScreenState extends State<CreateScreen> {
       return;
     }
 
-    await _analytics.logCreateQuote(
-      author: authorController.text.trim(),
-      tagsCount: tagsController.text
-          .split(',')
-          .where((tag) => tag.trim().isNotEmpty)
-          .length,
-    );
+    final text = textController.text.trim();
+    final author = authorController.text.trim();
+    final tags = tagsController.text
+        .split(',')
+        .map((tag) => tag.trim())
+        .where((tag) => tag.isNotEmpty)
+        .toList();
 
-    if (mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text(AppStrings.quoteSaved)));
-      Navigator.pop(context);
+    try {
+      if (widget.initialQuote == null) {
+        // Створення нової цитати
+        await context.read<QuotesProvider>().createQuote(
+          text: text,
+          author: author,
+          tags: tags,
+        );
+      } else {
+        // Оновлення існуючої цитати
+        final updated = widget.initialQuote!.copyWith(
+          text: text,
+          author: author,
+          tags: tags,
+        );
+        await context.read<QuotesProvider>().updateQuote(updated);
+      }
+
+      await _analytics.logCreateQuote(author: author, tagsCount: tags.length);
+
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text(AppStrings.quoteSaved)));
+        Navigator.pop(context);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Не вдалося зберегти цитату: ${e.toString()}'),
+          ),
+        );
+      }
     }
   }
 
@@ -173,9 +222,9 @@ class _CreateScreenState extends State<CreateScreen> {
   }
 
   Widget _buildTitle() {
-    return const Text(
-      AppStrings.createQuote,
-      style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
+    return Text(
+      widget.isEdit ? AppStrings.editPlaceholder : AppStrings.createQuote,
+      style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
     );
   }
 

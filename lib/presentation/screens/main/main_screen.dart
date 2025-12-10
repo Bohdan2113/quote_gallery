@@ -31,8 +31,8 @@ class _MainScreenState extends State<MainScreen> {
     var quotes = List<QuoteModel>.from(source);
 
     if (selectedTab == 1) {
-      final currentUserEmail = _authRepository.currentUser?.email;
-      quotes = quotes.where((q) => q.userId == currentUserEmail).toList();
+      final currentUserUid = _authRepository.currentUser?.uid;
+      quotes = quotes.where((q) => q.userId == currentUserUid).toList();
     } else if (selectedTab == 2) {
       quotes = quotes.where((q) => q.isFavorite).toList();
     }
@@ -399,15 +399,15 @@ class _MainScreenState extends State<MainScreen> {
   }
 
   Widget _buildQuoteCard(BuildContext context, QuoteModel quote) {
-    final isOwner = quote.userId == _authRepository.currentUser?.email;
+    final isOwner = quote.userId == _authRepository.currentUser?.uid;
 
     return QuoteCard(
       quote: quote,
       onTap: () => _openDetails(context, quote, isOwner),
       isOwner: isOwner,
       onFavoriteToggle: () => _handleFavoriteToggle(context, quote),
-      onEdit: () => _handleEdit(context),
-      onDelete: () => _handleDelete(context),
+      onEdit: () => _handleEdit(context, quote),
+      onDelete: () => _handleDelete(context, quote),
     );
   }
 
@@ -423,9 +423,7 @@ class _MainScreenState extends State<MainScreen> {
     BuildContext context,
     QuoteModel quote,
   ) async {
-    setState(() {
-      quote.isFavorite = !quote.isFavorite;
-    });
+    await context.read<QuotesProvider>().toggleFavorite(quote);
 
     if (quote.isFavorite) {
       await _analytics.logAddToFavorites(quoteId: quote.id);
@@ -447,13 +445,16 @@ class _MainScreenState extends State<MainScreen> {
     }
   }
 
-  void _handleEdit(BuildContext context) {
-    ScaffoldMessenger.of(
+  void _handleEdit(BuildContext context, QuoteModel quote) {
+    Navigator.push(
       context,
-    ).showSnackBar(const SnackBar(content: Text(AppStrings.editPlaceholder)));
+      MaterialPageRoute(
+        builder: (context) => CreateScreen(initialQuote: quote),
+      ),
+    );
   }
 
-  Future<void> _handleDelete(BuildContext context) async {
+  Future<void> _handleDelete(BuildContext context, QuoteModel quote) async {
     final result = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -475,6 +476,7 @@ class _MainScreenState extends State<MainScreen> {
     );
 
     if (result == true) {
+      await context.read<QuotesProvider>().deleteQuote(quote.id);
       await _analytics.logDeleteQuote();
       if (context.mounted) {
         ScaffoldMessenger.of(

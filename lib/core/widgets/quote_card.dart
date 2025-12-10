@@ -96,12 +96,13 @@ class QuoteCard extends StatelessWidget {
                     ],
                   ),
                 ),
-                Column(
+                Row(
                   children: [
                     InkWell(
                       onTap: onFavoriteToggle,
                       child: Container(
                         padding: const EdgeInsets.all(6),
+                        margin: const EdgeInsets.only(right: 4),
                         decoration: BoxDecoration(
                           color: quote.isFavorite
                               ? AppTheme.danger.withOpacity(0.08)
@@ -128,6 +129,7 @@ class QuoteCard extends StatelessWidget {
                         onTap: onEdit,
                         child: Container(
                           padding: const EdgeInsets.all(6),
+                          margin: const EdgeInsets.only(right: 4, left: 4),
                           decoration: BoxDecoration(
                             color: Colors.white,
                             borderRadius: BorderRadius.circular(8),
@@ -145,6 +147,7 @@ class QuoteCard extends StatelessWidget {
                         onTap: onDelete,
                         child: Container(
                           padding: const EdgeInsets.all(6),
+                          margin: const EdgeInsets.only(left: 4),
                           decoration: BoxDecoration(
                             color: Colors.white,
                             borderRadius: BorderRadius.circular(8),
