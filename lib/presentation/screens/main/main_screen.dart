@@ -349,7 +349,7 @@ class _MainScreenState extends State<MainScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 16),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 2,
-        childAspectRatio: 0.85,
+        childAspectRatio: 5,
         crossAxisSpacing: 12,
         mainAxisSpacing: 12,
       ),
