@@ -1,13 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
+import '../../../core/constants/app_strings.dart';
+import '../../../core/services/analytics_service.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/quote_card.dart';
-import '../../../core/constants/app_strings.dart';
-import '../../../data/mock/mock_data.dart';
 import '../../../data/models/quote_model.dart';
 import '../../../data/repositories/auth_repository.dart';
-import '../../../core/services/analytics_service.dart';
-import '../profile/profile_screen.dart';
+import '../../state/quotes_provider.dart';
 import '../create/create_screen.dart';
+import '../profile/profile_screen.dart';
+import 'quote_detail_screen.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -24,8 +27,8 @@ class _MainScreenState extends State<MainScreen> {
   final AuthRepository _authRepository = AuthRepository();
   final _analytics = AnalyticsService();
 
-  List<QuoteModel> get filteredQuotes {
-    List<QuoteModel> quotes = List.from(MockData.mockQuotes);
+  List<QuoteModel> _applyFilters(List<QuoteModel> source) {
+    var quotes = List<QuoteModel>.from(source);
 
     if (selectedTab == 1) {
       final currentUserEmail = _authRepository.currentUser?.email;
@@ -36,11 +39,10 @@ class _MainScreenState extends State<MainScreen> {
 
     if (searchQuery.isNotEmpty) {
       quotes = quotes.where((q) {
-        return q.text.toLowerCase().contains(searchQuery.toLowerCase()) ||
-            q.author.toLowerCase().contains(searchQuery.toLowerCase()) ||
-            q.tags.any(
-              (tag) => tag.toLowerCase().contains(searchQuery.toLowerCase()),
-            );
+        final query = searchQuery.toLowerCase();
+        return q.text.toLowerCase().contains(query) ||
+            q.author.toLowerCase().contains(query) ||
+            q.tags.any((tag) => tag.toLowerCase().contains(query));
       }).toList();
     }
 
@@ -55,12 +57,12 @@ class _MainScreenState extends State<MainScreen> {
     return quotes;
   }
 
-  List<String> get allAuthors {
-    return MockData.mockQuotes.map((q) => q.author).toSet().toList()..sort();
+  List<String> _allAuthors(List<QuoteModel> source) {
+    return source.map((q) => q.author).toSet().toList()..sort();
   }
 
-  List<String> get allTags {
-    return MockData.mockQuotes.expand((q) => q.tags).toSet().toList()..sort();
+  List<String> _allTags(List<QuoteModel> source) {
+    return source.expand((q) => q.tags).toSet().toList()..sort();
   }
 
   @override
@@ -75,8 +77,15 @@ class _MainScreenState extends State<MainScreen> {
     return Container(
       decoration: _buildBackgroundDecoration(),
       child: SafeArea(
-        child: Column(
-          children: [_buildHeader(context), _buildQuotesGrid(context)],
+        child: Consumer<QuotesProvider>(
+          builder: (context, quotesProvider, _) {
+            return Column(
+              children: [
+                _buildHeader(context, quotesProvider),
+                _buildQuotesGrid(context, quotesProvider),
+              ],
+            );
+          },
         ),
       ),
     );
@@ -92,7 +101,7 @@ class _MainScreenState extends State<MainScreen> {
     );
   }
 
-  Widget _buildHeader(BuildContext context) {
+  Widget _buildHeader(BuildContext context, QuotesProvider quotesProvider) {
     return Padding(
       padding: const EdgeInsets.all(16),
       child: Card(
@@ -106,7 +115,7 @@ class _MainScreenState extends State<MainScreen> {
               const SizedBox(height: 16),
               _buildSearchField(),
               const SizedBox(height: 12),
-              _buildFiltersRow(),
+              _buildFiltersRow(quotesProvider),
               const SizedBox(height: 8),
               _buildUserInfo(),
             ],
@@ -255,17 +264,19 @@ class _MainScreenState extends State<MainScreen> {
     );
   }
 
-  Widget _buildFiltersRow() {
+  Widget _buildFiltersRow(QuotesProvider quotesProvider) {
+    final baseQuotes = quotesProvider.quotes;
     return Row(
       children: [
-        Expanded(child: _buildAuthorFilter()),
+        Expanded(child: _buildAuthorFilter(baseQuotes)),
         const SizedBox(width: 12),
-        Expanded(child: _buildTagFilter()),
+        Expanded(child: _buildTagFilter(baseQuotes)),
       ],
     );
   }
 
-  Widget _buildAuthorFilter() {
+  Widget _buildAuthorFilter(List<QuoteModel> baseQuotes) {
+    final authors = _allAuthors(baseQuotes);
     return DropdownButtonFormField<String>(
       menuMaxHeight: 130,
       initialValue: selectedAuthor.isEmpty ? null : selectedAuthor,
@@ -275,9 +286,9 @@ class _MainScreenState extends State<MainScreen> {
       ),
       items: [
         const DropdownMenuItem(value: '', child: Text(AppStrings.allAuthors)),
-        ...allAuthors.map((author) {
-          return DropdownMenuItem(value: author, child: Text(author));
-        }),
+        ...authors.map(
+          (author) => DropdownMenuItem(value: author, child: Text(author)),
+        ),
       ],
       onChanged: (value) {
         setState(() => selectedAuthor = value ?? '');
@@ -285,7 +296,8 @@ class _MainScreenState extends State<MainScreen> {
     );
   }
 
-  Widget _buildTagFilter() {
+  Widget _buildTagFilter(List<QuoteModel> baseQuotes) {
+    final tags = _allTags(baseQuotes);
     return DropdownButtonFormField<String>(
       menuMaxHeight: 130,
       initialValue: selectedTag.isEmpty ? null : selectedTag,
@@ -295,9 +307,7 @@ class _MainScreenState extends State<MainScreen> {
       ),
       items: [
         const DropdownMenuItem(value: '', child: Text(AppStrings.allTags)),
-        ...allTags.map((tag) {
-          return DropdownMenuItem(value: tag, child: Text(tag));
-        }),
+        ...tags.map((tag) => DropdownMenuItem(value: tag, child: Text(tag))),
       ],
       onChanged: (value) {
         setState(() => selectedTag = value ?? '');
@@ -325,13 +335,41 @@ class _MainScreenState extends State<MainScreen> {
     );
   }
 
-  Widget _buildQuotesGrid(BuildContext context) {
-    final quotes = filteredQuotes;
+  Widget _buildQuotesGrid(BuildContext context, QuotesProvider quotesProvider) {
+    if (quotesProvider.status == QuotesStatus.loading ||
+        quotesProvider.status == QuotesStatus.initial) {
+      return const Expanded(child: Center(child: CircularProgressIndicator()));
+    }
+
+    if (quotesProvider.status == QuotesStatus.error) {
+      return Expanded(
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                quotesProvider.errorMessage ??
+                    'Сталася неочікувана помилка при завантаженні.',
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: AppTheme.danger, fontSize: 14),
+              ),
+              const SizedBox(height: 12),
+              ElevatedButton(
+                onPressed: () => quotesProvider.loadQuotes(),
+                child: const Text('Повторити спробу'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    final filtered = _applyFilters(quotesProvider.quotes);
 
     return Expanded(
-      child: quotes.isEmpty
+      child: filtered.isEmpty
           ? _buildEmptyState()
-          : _buildQuotesGridView(context, quotes),
+          : _buildQuotesGridView(context, filtered),
     );
   }
 
@@ -365,10 +403,19 @@ class _MainScreenState extends State<MainScreen> {
 
     return QuoteCard(
       quote: quote,
+      onTap: () => _openDetails(context, quote, isOwner),
       isOwner: isOwner,
       onFavoriteToggle: () => _handleFavoriteToggle(context, quote),
       onEdit: () => _handleEdit(context),
       onDelete: () => _handleDelete(context),
+    );
+  }
+
+  void _openDetails(BuildContext context, QuoteModel quote, bool isOwner) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => QuoteDetailScreen(quote: quote, isOwner: isOwner),
+      ),
     );
   }
 

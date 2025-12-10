@@ -1,12 +1,15 @@
-import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:provider/provider.dart';
+
 import 'firebase_options.dart';
 import 'presentation/screens/auth/auth_screen.dart';
 import 'presentation/screens/main/main_screen.dart';
+import 'presentation/state/quotes_provider.dart';
 import 'core/theme/app_theme.dart';
 import 'core/constants/app_strings.dart';
 import 'core/services/analytics_service.dart';
@@ -33,7 +36,14 @@ void main() async {
     };
   }
 
-  runApp(const QuoteGalleryApp());
+  runApp(
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => QuotesProvider()..loadQuotes()),
+      ],
+      child: const QuoteGalleryApp(),
+    ),
+  );
 }
 
 class QuoteGalleryApp extends StatelessWidget {
