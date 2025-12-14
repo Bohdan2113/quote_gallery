@@ -418,6 +418,7 @@ class _MainScreenState extends State<MainScreen> {
             childAspectRatio: childAspectRatio,
             crossAxisSpacing: 12,
             mainAxisSpacing: 12,
+            mainAxisExtent: isSmallWidth ? 150 : 100,
           ),
           itemCount: quotes.length,
           itemBuilder: (context, index) {
