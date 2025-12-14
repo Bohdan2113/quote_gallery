@@ -4,7 +4,7 @@ import '../models/quote_model.dart';
 
 /// Абстракція репозиторію для роботи з цитатами у Firestore.
 abstract class IQuotesRepository {
-  Stream<List<QuoteModel>> watchQuotes();
+  // Stream<List<QuoteModel>> watchQuotes();
 
   Future<List<QuoteModel>> getQuotesOnce();
 
@@ -31,17 +31,17 @@ class QuotesRepository implements IQuotesRepository {
   CollectionReference<Map<String, dynamic>> get _collection =>
       _firestore.collection('quotes');
 
-  @override
-  Stream<List<QuoteModel>> watchQuotes() {
-    return _collection
-        .orderBy('createdAt', descending: true)
-        .snapshots()
-        .map(
-          (snapshot) => snapshot.docs
-              .map((doc) => QuoteModel.fromJson(doc.data(), doc.id))
-              .toList(),
-        );
-  }
+  // @override
+  // Stream<List<QuoteModel>> watchQuotes() {
+  //   return _collection
+  //       .orderBy('createdAt', descending: true)
+  //       .snapshots()
+  //       .map(
+  //         (snapshot) => snapshot.docs
+  //             .map((doc) => QuoteModel.fromJson(doc.data(), doc.id))
+  //             .toList(),
+  //       );
+  // }
 
   @override
   Future<List<QuoteModel>> getQuotesOnce() async {
