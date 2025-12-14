@@ -82,7 +82,17 @@ class _MainScreenState extends State<MainScreen> {
             return Column(
               children: [
                 _buildHeader(context, quotesProvider),
-                _buildQuotesGrid(context, quotesProvider),
+                Expanded(
+                  child: SingleChildScrollView(
+                    child: Column(
+                      children: [
+                        _buildFiltersSection(quotesProvider),
+                        const SizedBox(height: 16),
+                        _buildQuotesGrid(context, quotesProvider),
+                      ],
+                    ),
+                  ),
+                ),
               ],
             );
           },
@@ -112,7 +122,21 @@ class _MainScreenState extends State<MainScreen> {
               _buildHeaderRow(context),
               const SizedBox(height: 16),
               _buildTabs(),
-              const SizedBox(height: 16),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFiltersSection(QuotesProvider quotesProvider) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.all(18),
+          child: Column(
+            children: [
               _buildSearchField(),
               const SizedBox(height: 12),
               _buildFiltersRow(quotesProvider),
@@ -338,39 +362,35 @@ class _MainScreenState extends State<MainScreen> {
   Widget _buildQuotesGrid(BuildContext context, QuotesProvider quotesProvider) {
     if (quotesProvider.status == QuotesStatus.loading ||
         quotesProvider.status == QuotesStatus.initial) {
-      return const Expanded(child: Center(child: CircularProgressIndicator()));
+      return const Center(child: CircularProgressIndicator());
     }
 
     if (quotesProvider.status == QuotesStatus.error) {
-      return Expanded(
-        child: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                quotesProvider.errorMessage ??
-                    'Сталася неочікувана помилка при завантаженні.',
-                textAlign: TextAlign.center,
-                style: const TextStyle(color: AppTheme.danger, fontSize: 14),
-              ),
-              const SizedBox(height: 12),
-              ElevatedButton(
-                onPressed: () => quotesProvider.loadQuotes(),
-                child: const Text('Повторити спробу'),
-              ),
-            ],
-          ),
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              quotesProvider.errorMessage ??
+                  'Сталася неочікувана помилка при завантаженні.',
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: AppTheme.danger, fontSize: 14),
+            ),
+            const SizedBox(height: 12),
+            ElevatedButton(
+              onPressed: () => quotesProvider.loadQuotes(),
+              child: const Text('Повторити спробу'),
+            ),
+          ],
         ),
       );
     }
 
     final filtered = _applyFilters(quotesProvider.quotes);
 
-    return Expanded(
-      child: filtered.isEmpty
-          ? _buildEmptyState()
-          : _buildQuotesGridView(context, filtered),
-    );
+    return filtered.isEmpty
+        ? _buildEmptyState()
+        : _buildQuotesGridView(context, filtered);
   }
 
   Widget _buildEmptyState() {
@@ -383,17 +403,25 @@ class _MainScreenState extends State<MainScreen> {
   }
 
   Widget _buildQuotesGridView(BuildContext context, List<QuoteModel> quotes) {
-    return GridView.builder(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        childAspectRatio: 5,
-        crossAxisSpacing: 12,
-        mainAxisSpacing: 12,
-      ),
-      itemCount: quotes.length,
-      itemBuilder: (context, index) {
-        return _buildQuoteCard(context, quotes[index]);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final crossAxisCount = constraints.maxWidth < 600 ? 1 : 2;
+
+        return GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: crossAxisCount,
+            childAspectRatio: 5,
+            crossAxisSpacing: 12,
+            mainAxisSpacing: 12,
+          ),
+          itemCount: quotes.length,
+          itemBuilder: (context, index) {
+            return _buildQuoteCard(context, quotes[index]);
+          },
+        );
       },
     );
   }
