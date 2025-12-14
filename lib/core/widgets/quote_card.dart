@@ -52,6 +52,8 @@ class QuoteCard extends StatelessWidget {
                 height: 1.4,
                 color: Color(0xFF0B1220),
               ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
             const SizedBox(height: 10),
             Row(

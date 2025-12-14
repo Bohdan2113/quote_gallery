@@ -405,7 +405,9 @@ class _MainScreenState extends State<MainScreen> {
   Widget _buildQuotesGridView(BuildContext context, List<QuoteModel> quotes) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final crossAxisCount = constraints.maxWidth < 600 ? 1 : 2;
+        final isSmallWidth = constraints.maxWidth < 600;
+        final crossAxisCount = isSmallWidth ? 1 : 2;
+        final childAspectRatio = isSmallWidth ? 3.0 : 5.0;
 
         return GridView.builder(
           shrinkWrap: true,
@@ -413,7 +415,7 @@ class _MainScreenState extends State<MainScreen> {
           padding: const EdgeInsets.symmetric(horizontal: 16),
           gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: crossAxisCount,
-            childAspectRatio: 5,
+            childAspectRatio: childAspectRatio,
             crossAxisSpacing: 12,
             mainAxisSpacing: 12,
           ),
